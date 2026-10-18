@@ -8,3 +8,5 @@ __pycache__/
 *.db
 .env.local
 .env.*.local
+.vercel
+.env*
