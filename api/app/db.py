@@ -17,7 +17,9 @@ def _url_normalizada() -> str:
     if url.startswith("postgres://"):
         url = url.replace("postgres://", "postgresql://", 1)
     if url.startswith("postgresql://"):
-        url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+        # psycopg 3 (driver "psycopg"): tem wheel pronto para todas as versoes de
+        # Python usadas pela Vercel, diferente do psycopg2, que exigiria compilar.
+        url = url.replace("postgresql://", "postgresql+psycopg://", 1)
     return url
 
 
