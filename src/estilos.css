@@ -140,7 +140,7 @@ input, select, textarea {
   border-radius: 10px;
   padding: 10px 12px;
   font: inherit;
-  font-size: 0.95rem;
+  font-size: 16px; /* abaixo de 16px o celular da zoom ao focar o campo */
 }
 input:focus, select:focus, textarea:focus { outline: 2px solid var(--acento-escuro); outline-offset: 0; border-color: var(--acento-escuro); }
 textarea { min-height: 70px; resize: vertical; }

@@ -58,11 +58,21 @@ export default function Login() {
           </div>
 
           {modo === 'criar' && (
-            <Campo rotulo="Nome" value={form.nome} onChange={alterar('nome')} required minLength={2} />
+            <Campo
+              rotulo="Nome"
+              name="name"
+              autoComplete="name"
+              autoCapitalize="words"
+              value={form.nome}
+              onChange={alterar('nome')}
+              required
+              minLength={2}
+            />
           )}
           <Campo
             rotulo="E-mail"
             type="email"
+            name="email"
             autoComplete="email"
             value={form.email}
             onChange={alterar('email')}
@@ -71,6 +81,7 @@ export default function Login() {
           <Campo
             rotulo="Senha"
             type="password"
+            name="password"
             autoComplete={modo === 'entrar' ? 'current-password' : 'new-password'}
             value={form.senha}
             onChange={alterar('senha')}
@@ -80,6 +91,8 @@ export default function Login() {
           {modo === 'criar' && (
             <Campo
               rotulo="Código de convite (se o app pedir)"
+              name="codigo_convite"
+              autoComplete="off"
               value={form.codigo_convite}
               onChange={alterar('codigo_convite')}
             />
