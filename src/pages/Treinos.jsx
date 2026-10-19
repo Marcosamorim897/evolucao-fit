@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { Campo, Carregando, Cartao, Erro, Modal } from '../components/Interface'
 import { IconeDireita, IconeEsquerda, IconeLixo, IconeMais } from '../components/Icones'
 import { api } from '../lib/api'
@@ -182,15 +182,20 @@ function DiaDeTreino({ dia, fichas, aoFechar, aoMudar }) {
                 <div className="tabela-rolagem" style={{ marginTop: 8 }}>
                   <table>
                     <thead>
-                      <tr><th>Exercício</th><th>Séries</th><th>Reps</th><th>Carga</th></tr>
+                      <tr><th>Exercício</th><th>Séries (kg × reps)</th></tr>
                     </thead>
                     <tbody>
-                      {treino.series.map((s) => (
-                        <tr key={s.id}>
-                          <td>{s.nome_exercicio}</td>
-                          <td>{s.series ?? '—'}</td>
-                          <td>{s.repeticoes || '—'}</td>
-                          <td>{s.carga_kg ? `${numero(s.carga_kg)} kg` : '—'}</td>
+                      {agruparPorExercicio(treino.series).map((grupo) => (
+                        <tr key={grupo.chave}>
+                          <td>{grupo.nome}</td>
+                          <td style={{ whiteSpace: 'normal' }}>
+                            {grupo.linhas.map((s, j) => (
+                              <Fragment key={s.id}>
+                                {j > 0 && ' · '}
+                                <span style={{ whiteSpace: 'nowrap' }}>{descreverSerie(s)}</span>
+                              </Fragment>
+                            ))}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -228,43 +233,55 @@ function FormularioTreino({ dia, fichas, aoCancelar, aoSalvar }) {
   const [titulo, setTitulo] = useState('')
   const [duracao, setDuracao] = useState('')
   const [notas, setNotas] = useState('')
-  const [series, setSeries] = useState([])
+  const [exercicios, setExercicios] = useState([])
   const [erro, setErro] = useState('')
   const [enviando, setEnviando] = useState(false)
 
-  // Ao escolher a ficha, traz os exercicios dela ja com a ultima carga usada.
+  // Ao escolher a ficha, traz os exercicios dela com cada serie igual a da ultima vez.
   useEffect(() => {
     const ficha = fichas.find((f) => String(f.id) === String(fichaId))
     if (!ficha) {
-      setSeries([])
+      setExercicios([])
       return
     }
     let ativo = true
+    setExercicios(null)
     Promise.all(
       ficha.exercicios.map(async (ex) => {
-        let ultima = { carga_kg: null, repeticoes: null }
+        let anteriores = []
         try {
-          ultima = await api.get(`/treinos/ultima-carga/${ex.id}`)
+          anteriores = (await api.get(`/treinos/ultima-carga/${ex.id}`)).series ?? []
         } catch {
           /* sem histórico ainda */
         }
+        const padrao = { carga_kg: ex.carga_kg, repeticoes: ex.repeticoes }
         return {
           exercicio_id: ex.id,
           nome_exercicio: ex.nome,
-          series: ex.series,
-          repeticoes: ultima.repeticoes || ex.repeticoes,
-          carga_kg: ultima.carga_kg ?? ex.carga_kg ?? '',
+          anteriores,
+          series: Array.from({ length: Math.max(ex.series, anteriores.length) }, (_, i) => {
+            const base = anteriores[i] ?? anteriores[anteriores.length - 1] ?? padrao
+            return { carga_kg: base.carga_kg ?? '', repeticoes: base.repeticoes ?? '' }
+          }),
         }
       }),
-    ).then((lista) => ativo && setSeries(lista))
+    ).then((lista) => ativo && setExercicios(lista))
     return () => {
       ativo = false
     }
   }, [fichaId, fichas])
 
-  function alterarSerie(indice, campo, valor) {
-    setSeries(series.map((s, i) => (i === indice ? { ...s, [campo]: valor } : s)))
+  function mudarSeries(indice, mudar) {
+    setExercicios(exercicios.map((ex, i) => (i === indice ? { ...ex, series: mudar(ex.series) } : ex)))
   }
+
+  function alterarSerie(indice, serie, campo, valor) {
+    mudarSeries(indice, (series) => series.map((s, j) => (j === serie ? { ...s, [campo]: valor } : s)))
+  }
+
+  // A serie nova repete a ultima, que costuma ser o ponto de partida da proxima.
+  const adicionarSerie = (indice) => mudarSeries(indice, (series) => [...series, { ...series[series.length - 1] }])
+  const removerSerie = (indice) => mudarSeries(indice, (series) => series.slice(0, -1))
 
   async function enviar(e) {
     e.preventDefault()
@@ -277,13 +294,16 @@ function FormularioTreino({ dia, fichas, aoCancelar, aoSalvar }) {
         titulo: titulo.trim() || null,
         duracao_min: valorOuNulo(duracao),
         notas: notas.trim() || null,
-        series: series.map((s) => ({
-          exercicio_id: s.exercicio_id,
-          nome_exercicio: s.nome_exercicio,
-          series: valorOuNulo(s.series),
-          repeticoes: String(s.repeticoes || ''),
-          carga_kg: valorOuNulo(s.carga_kg),
-        })),
+        // Uma linha por serie, para guardar a progressao de carga dentro do exercicio.
+        series: (exercicios ?? []).flatMap((ex) =>
+          ex.series.map((s) => ({
+            exercicio_id: ex.exercicio_id,
+            nome_exercicio: ex.nome_exercicio,
+            series: 1,
+            repeticoes: String(s.repeticoes || ''),
+            carga_kg: valorOuNulo(s.carga_kg),
+          })),
+        ),
       })
       aoSalvar()
     } catch (e) {
@@ -321,34 +341,48 @@ function FormularioTreino({ dia, fichas, aoCancelar, aoSalvar }) {
         />
       </div>
 
-      {series.length > 0 && (
+      {exercicios === null && <Carregando texto="Carregando exercícios…" />}
+      {exercicios?.length > 0 && (
         <div className="empilhado">
-          <span className="rotulo-fraco">Cargas de hoje (vêm preenchidas com a última vez)</span>
-          {series.map((s, i) => (
-            <div key={s.exercicio_id} className="grade grade-3" style={{ alignItems: 'end' }}>
-              <Campo rotulo={s.nome_exercicio}>
-                <input
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  value={s.carga_kg}
-                  onChange={(e) => alterarSerie(i, 'carga_kg', e.target.value)}
-                  placeholder="carga kg"
-                />
-              </Campo>
-              <Campo
-                rotulo="Repetições"
-                value={s.repeticoes}
-                onChange={(e) => alterarSerie(i, 'repeticoes', e.target.value)}
-              />
-              <Campo
-                rotulo="Séries"
-                type="number"
-                min="1"
-                max="20"
-                value={s.series ?? ''}
-                onChange={(e) => alterarSerie(i, 'series', e.target.value)}
-              />
+          <span className="rotulo-fraco">Séries de hoje (vêm preenchidas com a última vez)</span>
+          {exercicios.map((ex, i) => (
+            <div key={ex.exercicio_id} className="cartao" style={{ padding: 12 }}>
+              <strong>{ex.nome_exercicio}</strong>
+              {ex.anteriores.length > 0 && (
+                <div className="detalhe">Última vez: {ex.anteriores.map(descreverSerie).join(' · ')}</div>
+              )}
+              <div className="empilhado" style={{ gap: 8, marginTop: 8 }}>
+                {ex.series.map((s, j) => (
+                  <div key={j} className="linha-serie">
+                    <span className="unidade">{j + 1}ª</span>
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      step="0.5"
+                      min="0"
+                      value={s.carga_kg}
+                      onChange={(e) => alterarSerie(i, j, 'carga_kg', e.target.value)}
+                      placeholder="kg"
+                      aria-label={`Carga da ${j + 1}ª série de ${ex.nome_exercicio}`}
+                    />
+                    <span className="unidade">kg</span>
+                    <input
+                      inputMode="numeric"
+                      value={s.repeticoes}
+                      onChange={(e) => alterarSerie(i, j, 'repeticoes', e.target.value)}
+                      placeholder="reps"
+                      aria-label={`Repetições da ${j + 1}ª série de ${ex.nome_exercicio}`}
+                    />
+                    <span className="unidade">reps</span>
+                  </div>
+                ))}
+              </div>
+              <div className="linha" style={{ marginTop: 8 }}>
+                <button type="button" className="secundario pequeno" onClick={() => adicionarSerie(i)}>+ série</button>
+                {ex.series.length > 1 && (
+                  <button type="button" className="fantasma pequeno" onClick={() => removerSerie(i)}>− série</button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -360,9 +394,28 @@ function FormularioTreino({ dia, fichas, aoCancelar, aoSalvar }) {
 
       <Erro>{erro}</Erro>
       <div className="linha">
-        <button type="submit" disabled={enviando}>{enviando ? 'Salvando…' : 'Salvar treino'}</button>
+        <button type="submit" disabled={enviando || exercicios === null}>{enviando ? 'Salvando…' : 'Salvar treino'}</button>
         <button type="button" className="fantasma" onClick={aoCancelar}>Cancelar</button>
       </div>
     </form>
   )
+}
+
+/** Junta as linhas seguidas do mesmo exercicio (cada linha e uma serie). */
+function agruparPorExercicio(series) {
+  const grupos = []
+  for (const s of series) {
+    const id = s.exercicio_id ?? s.nome_exercicio
+    const ultimo = grupos[grupos.length - 1]
+    if (ultimo && ultimo.id === id) ultimo.linhas.push(s)
+    else grupos.push({ id, chave: s.id, nome: s.nome_exercicio, linhas: [s] })
+  }
+  return grupos
+}
+
+function descreverSerie(s) {
+  const carga = s.carga_kg != null && s.carga_kg !== '' ? `${numero(s.carga_kg)} kg` : '—'
+  const reps = s.repeticoes || '—'
+  // registros antigos guardavam "N series" numa linha so
+  return s.series > 1 ? `${s.series}× ${carga} × ${reps}` : `${carga} × ${reps}`
 }

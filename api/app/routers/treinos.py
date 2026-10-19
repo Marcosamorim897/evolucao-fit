@@ -122,17 +122,31 @@ def ultima_carga(
     usuario: Usuario = Depends(usuario_atual),
     sessao: Session = Depends(obter_sessao),
 ):
-    """Ultima carga/reps registrada para o exercicio, para pre-preencher o formulario."""
-    serie = sessao.scalar(
-        select(SerieRealizada)
+    """Series do ultimo treino com o exercicio, para pre-preencher o formulario serie a serie."""
+    ultimo_treino = sessao.scalar(
+        select(SerieRealizada.treino_id)
         .join(Treino, Treino.id == SerieRealizada.treino_id)
         .where(Treino.usuario_id == usuario.id, SerieRealizada.exercicio_id == exercicio_id)
         .order_by(Treino.data.desc(), SerieRealizada.id.desc())
         .limit(1)
     )
-    if serie is None:
-        return {"carga_kg": None, "repeticoes": None}
-    return {"carga_kg": serie.carga_kg, "repeticoes": serie.repeticoes}
+    if ultimo_treino is None:
+        return {"carga_kg": None, "repeticoes": None, "series": []}
+    linhas = sessao.scalars(
+        select(SerieRealizada)
+        .where(
+            SerieRealizada.treino_id == ultimo_treino,
+            SerieRealizada.exercicio_id == exercicio_id,
+        )
+        .order_by(SerieRealizada.id)
+    )
+    # Hoje cada linha e uma serie; registros antigos tinham uma linha so com "N series".
+    series = [
+        {"carga_kg": linha.carga_kg, "repeticoes": linha.repeticoes}
+        for linha in linhas
+        for _ in range(max(linha.series or 1, 1))
+    ]
+    return {**series[-1], "series": series}
 
 
 @router.get("/calendario/{ano}/{mes}")
