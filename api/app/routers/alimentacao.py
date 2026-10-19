@@ -71,6 +71,17 @@ def excluir_alimento(
     sessao.commit()
 
 
+def macros_da_porcao(alimento: Alimento, quantidade: float) -> tuple[float, float, float, float]:
+    """kcal, proteina, carbo e gordura de `quantidade` g/ml do alimento."""
+    fator = quantidade / 100.0
+    return (
+        round(alimento.kcal_100 * fator, 1),
+        round(alimento.proteina_100 * fator, 1),
+        round(alimento.carbo_100 * fator, 1),
+        round(alimento.gordura_100 * fator, 1),
+    )
+
+
 def _buscar_alimento(sessao: Session, usuario: Usuario, alimento_id: int) -> Alimento:
     alimento = sessao.scalar(
         select(Alimento).where(Alimento.id == alimento_id, Alimento.usuario_id == usuario.id)
@@ -123,11 +134,7 @@ def adicionar_item(
 
     if dados.alimento_id is not None:
         alimento = _buscar_alimento(sessao, usuario, dados.alimento_id)
-        fator = dados.quantidade / 100.0
-        kcal = round(alimento.kcal_100 * fator, 1)
-        prot = round(alimento.proteina_100 * fator, 1)
-        carb = round(alimento.carbo_100 * fator, 1)
-        gord = round(alimento.gordura_100 * fator, 1)
+        kcal, prot, carb, gord = macros_da_porcao(alimento, dados.quantidade)
         descricao = descricao or alimento.nome
     elif not descricao:
         raise HTTPException(

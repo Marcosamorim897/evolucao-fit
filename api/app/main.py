@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import Base, engine
-from .routers import agua, alimentacao, auth, fichas, medidas, resumo, treinos
+from .routers import agua, alimentacao, auth, fichas, medidas, plano, resumo, treinos
 
 
 def criar_app() -> FastAPI:
@@ -17,7 +17,7 @@ def criar_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    for modulo in (auth, fichas, treinos, medidas, alimentacao, agua, resumo):
+    for modulo in (auth, fichas, treinos, medidas, alimentacao, agua, plano, resumo):
         app.include_router(modulo.router)
 
     @app.get("/api/saude")

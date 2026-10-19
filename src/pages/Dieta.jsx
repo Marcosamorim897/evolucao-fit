@@ -3,6 +3,7 @@ import { Barra, Campo, Carregando, Cartao, Erro, Modal } from '../components/Int
 import { IconeGota, IconeLixo, IconeMais } from '../components/Icones'
 import { api } from '../lib/api'
 import { REFEICOES, hojeISO, litros, numero, valorOuNulo } from '../lib/formato'
+import PlanoAlimentar from './PlanoAlimentar'
 
 const COPOS = [250, 500, 750]
 
@@ -14,6 +15,7 @@ export default function Dieta() {
   const [erro, setErro] = useState('')
   const [refeicaoAberta, setRefeicaoAberta] = useState(null)
   const [bibliotecaAberta, setBibliotecaAberta] = useState(false)
+  const [aba, setAba] = useState('diario')
 
   const carregar = useCallback(() => {
     Promise.all([api.get(`/refeicoes/${dia}`), api.get(`/agua/${dia}`)])
@@ -71,6 +73,19 @@ export default function Dieta() {
 
       <Erro>{erro}</Erro>
 
+      <div className="chips" style={{ marginBottom: 14 }}>
+        <button type="button" className={`chip ${aba === 'diario' ? 'ativo' : ''}`} onClick={() => setAba('diario')}>
+          Diário
+        </button>
+        <button type="button" className={`chip ${aba === 'plano' ? 'ativo' : ''}`} onClick={() => setAba('plano')}>
+          Plano alimentar
+        </button>
+      </div>
+
+      {aba === 'plano' ? (
+        <PlanoAlimentar dia={dia} alimentos={alimentos} aoLancar={carregar} />
+      ) : (
+      <>
       <div className="grade grade-2">
         <Cartao titulo="Calorias">
           <div className="linha">
@@ -174,6 +189,9 @@ export default function Dieta() {
           Cadastre um alimento uma vez com os valores por 100 g; depois basta informar a quantidade.
         </p>
       </Cartao>
+
+      </>
+      )}
 
       {refeicaoAberta && (
         <FormularioItem

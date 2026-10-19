@@ -244,3 +244,52 @@ class AguaDia(BaseModel):
     total_ml: int
     meta_agua_ml: int
     registros: list[AguaSaida]
+
+
+# ----- plano alimentar -----
+class EscolhaPlano(BaseModel):
+    """Uma opcao de alimento. Sem `gramas`, so aparece no plano (ex.: vegetais a vontade)."""
+
+    alimento: str = Field(min_length=1, max_length=140)
+    gramas: float | None = Field(default=None, gt=0, le=5000)
+    texto: str | None = Field(default=None, max_length=120)
+
+
+class ItemPlano(BaseModel):
+    rotulo: str = Field(min_length=1, max_length=120)
+    escolhas: list[EscolhaPlano] = []
+    grupo: str | None = None
+    texto: str | None = Field(default=None, max_length=200)
+    agua_ml: int | None = Field(default=None, gt=0, le=3000)
+
+
+class OpcaoPlano(BaseModel):
+    nome: str = Field(min_length=1, max_length=60)
+    itens: list[ItemPlano]
+
+
+class RefeicaoPlano(BaseModel):
+    horario: str = Field(pattern=r"^\d{2}:\d{2}$")
+    nome: str = Field(min_length=1, max_length=60)
+    refeicao: Literal[REFEICOES]
+    obs: str | None = Field(default=None, max_length=200)
+    opcoes: list[OpcaoPlano] = Field(min_length=1)
+
+
+class GrupoPlano(BaseModel):
+    nome: str = Field(min_length=1, max_length=60)
+    descricao: str | None = Field(default=None, max_length=200)
+    escolhas: list[EscolhaPlano]
+
+
+class PlanoDados(BaseModel):
+    refeicoes: list[RefeicaoPlano]
+    grupos: list[GrupoPlano] = []
+
+
+class LancarPlanoEntrada(BaseModel):
+    data: date
+    refeicao: int = Field(ge=0)
+    opcao: int = Field(default=0, ge=0)
+    # indice do item -> indice da escolha; itens ausentes usam a primeira opcao
+    escolhas: dict[int, int] = {}

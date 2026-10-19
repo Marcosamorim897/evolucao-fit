@@ -180,3 +180,18 @@ class RegistroAgua(Base):
     data: Mapped[date] = mapped_column(Date, nullable=False, index=True)
     ml: Mapped[int] = mapped_column(Integer, nullable=False)
     criado_em: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
+
+
+class PlanoAlimentar(Base):
+    """Dieta passada pela nutricionista: refeicoes, opcoes e grupos de substituicao (JSON)."""
+
+    __tablename__ = "planos_alimentares"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(
+        ForeignKey("usuarios.id", ondelete="CASCADE"), unique=True, index=True
+    )
+    conteudo: Mapped[str] = mapped_column(Text, nullable=False)
+    atualizado_em: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
