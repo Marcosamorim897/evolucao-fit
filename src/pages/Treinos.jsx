@@ -254,10 +254,14 @@ function FormularioTreino({ dia, fichas, aoCancelar, aoSalvar }) {
         } catch {
           /* sem histórico ainda */
         }
-        const padrao = { carga_kg: ex.carga_kg, repeticoes: ex.repeticoes }
+        // Sem historico as reps ficam vazias: a ficha guarda a meta (ex.: "8-10"),
+        // que aparece como dica no campo em vez de ser salva como se fosse feita.
+        const padrao = { carga_kg: ex.carga_kg, repeticoes: '' }
         return {
           exercicio_id: ex.id,
           nome_exercicio: ex.nome,
+          meta: `${ex.series} × ${ex.repeticoes}`,
+          metaReps: ex.repeticoes,
           anteriores,
           series: Array.from({ length: Math.max(ex.series, anteriores.length) }, (_, i) => {
             const base = anteriores[i] ?? anteriores[anteriores.length - 1] ?? padrao
@@ -318,7 +322,7 @@ function FormularioTreino({ dia, fichas, aoCancelar, aoSalvar }) {
       <Campo rotulo="Ficha usada">
         <select value={fichaId} onChange={(e) => setFichaId(e.target.value)}>
           <option value="">Treino livre (sem ficha)</option>
-          {fichas.map((f) => (
+          {ativas.map((f) => (
             <option key={f.id} value={f.id}>{f.nome}{f.foco ? ` — ${f.foco}` : ''}</option>
           ))}
         </select>
@@ -347,7 +351,10 @@ function FormularioTreino({ dia, fichas, aoCancelar, aoSalvar }) {
           <span className="rotulo-fraco">Séries de hoje (vêm preenchidas com a última vez)</span>
           {exercicios.map((ex, i) => (
             <div key={ex.exercicio_id} className="cartao" style={{ padding: 12 }}>
-              <strong>{ex.nome_exercicio}</strong>
+              <div className="linha espaco-entre">
+                <strong>{ex.nome_exercicio}</strong>
+                <span className="unidade">Meta {ex.meta}</span>
+              </div>
               {ex.anteriores.length > 0 && (
                 <div className="detalhe">Última vez: {ex.anteriores.map(descreverSerie).join(' · ')}</div>
               )}
@@ -370,7 +377,7 @@ function FormularioTreino({ dia, fichas, aoCancelar, aoSalvar }) {
                       inputMode="numeric"
                       value={s.repeticoes}
                       onChange={(e) => alterarSerie(i, j, 'repeticoes', e.target.value)}
-                      placeholder="reps"
+                      placeholder={ex.metaReps || 'reps'}
                       aria-label={`Repetições da ${j + 1}ª série de ${ex.nome_exercicio}`}
                     />
                     <span className="unidade">reps</span>
